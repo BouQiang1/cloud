@@ -91,12 +91,18 @@ def main(args):
 
     '''模型初始化阶段，判断是否有保存的训练文件；如果有则加载，反之重置训练参数'''
     try:
-        checkpoint = torch.load(str(exp_dir) + '/checkpoints/best_model.pth')
-        start_epoch = checkpoint['epoch']
-        classifier.load_state_dict(checkpoint['model_state_dict'])
-        log_string('Use pretrain model')
-    except:
-        log_string('Restart training training...')
+        model_path = str(exp_dir) + '/checkpoints/best_model.pth'
+        print(f"Attempting to load model from: {model_path}")
+        if os.path.exists(model_path):
+            checkpoint = torch.load(model_path)
+            start_epoch = checkpoint['epoch']
+            classifier.load_state_dict(checkpoint['model_state_dict'])
+            log_string('Use pretrain model')
+        else:
+            log_string(f"Model file {model_path} not found. Starting training from scratch...")
+            start_epoch = 0
+    except Exception as e:
+        log_string(f"Error loading model: {e}. Starting training from scratch...")
         start_epoch = 0
 
     '''获取优化器、调度器'''

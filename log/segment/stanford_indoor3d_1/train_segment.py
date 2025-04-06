@@ -87,13 +87,22 @@ def main(args):
         elif classname.find('Linear') != -1:
             torch.nn.init.xavier_normal_(m.weight.data)
             torch.nn.init.constant_(m.bias.data, 0.0)
+
     try:
-        checkpoint = torch.load(str(exp_dir) + '/checkpoints/best_model.pth')
-        start_epoch = checkpoint['epoch']
-        classifier.load_state_dict(checkpoint['model_state_dict'])
-        log_string('Use pretrain model')
-    except:
-        log_string('No existing model, starting training from scratch...')
+        exp_dir = "log/classification/pct-office_3dim_1206"  # 确保这里的路径正确
+        model_path = os.path.join(exp_dir, 'checkpoints', 'best_model.pth')
+        print(f"尝试加载模型的路径: {model_path}")
+        if os.path.exists(model_path):
+            checkpoint = torch.load(model_path)
+            start_epoch = checkpoint['epoch']
+            classifier.load_state_dict(checkpoint['model_state_dict'])
+            log_string('使用预训练模型')
+        else:
+            log_string(f"模型文件 {model_path} 不存在。从头开始训练...")
+            start_epoch = 0
+            classifier = classifier.apply(weights_init)
+    except Exception as e:
+        log_string(f"加载模型时出错: {e}。从头开始训练...")
         start_epoch = 0
         classifier = classifier.apply(weights_init)
 

@@ -1,9 +1,4 @@
-﻿"""
---本代码有B站up主 "三维点云-小小武"提供,
---目前致力于学习三维点云的分类和分割、二维图像的目标检测和语义分割 以及比较前沿的模块技术。相关视频已经上传到B站，
---希望小伙伴们多多点赞支持，如果能充电支持就更好了，谢谢大家。
-"""
-import os
+﻿import os
 import sys
 import torch
 import numpy as np
@@ -12,16 +7,15 @@ import importlib
 import logging
 from tqdm import tqdm
 from pathlib import Path
-from data_utils.S3DISDataLoader import S3DISDataset,ScannetDatasetWholeScene
-from config.seg_setting import optimizer_set,scheduler_set, parse_args
+from data_utils.S3DISDataLoader import S3DISDataset, ScannetDatasetWholeScene
+from config.seg_setting import optimizer_set, scheduler_set, parse_args
 from data_utils.indoor3d_util import g_label2color
 from config.seg_dir_set import dirset
+import argparse  # 导入 argparse 模块
 
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) #获取当前脚本文件的所在目录的绝对路径
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
-sys.path.append(os.path.join(ROOT_DIR, 'models')) #将当前工作目录下的 models 目录加入到 sys.path
-
+sys.path.append(os.path.join(ROOT_DIR, 'models'))
 
 classes = ['ceiling', 'floor', 'wall', 'beam', 'column', 'window', 'door', 'table', 'chair', 'sofa', 'bookcase',
            'board', 'clutter']
@@ -40,7 +34,6 @@ def add_vote(vote_label_pool, point_idx, pred_label, weight):
                 vote_label_pool[int(point_idx[b, n]), int(pred_label[b, n])] += 1
     return vote_label_pool
 
-
 def main(args):
     def log_string(str):
         logger.info(str)
@@ -55,7 +48,7 @@ def main(args):
     if not os.path.exists(visual_dir):
         os.makedirs(visual_dir)
 
-    exp_dir, checkpoints_dir, view_dir,logger = dirset(args, cls_expdir=False)
+    exp_dir, checkpoints_dir, view_dir, logger = dirset(args, cls_expdir=False)
 
     '''控制台输出超参数'''
     log_string('Load parameters ...')
@@ -70,13 +63,11 @@ def main(args):
     exp_dir = Path(exp_dir)
     logs_dir = exp_dir / 'logs'
     model_name = os.listdir(logs_dir)[0].split('.')[0]
-    # model_name = os.listdir(exp_dir + '/logs')[0].split('.')[0]
     MODEL = importlib.import_module(model_name)
     classifier = MODEL.get_model(args.seg_num_category).cuda()
     checkpoint = torch.load(str(exp_dir) + '/checkpoints/best_model.pth')
     classifier.load_state_dict(checkpoint['model_state_dict'])
     classifier = classifier.eval()
-
 
     '''开始验证结果'''
     with torch.no_grad():
@@ -185,14 +176,32 @@ def main(args):
                 np.sum(total_correct_class) / float(np.sum(total_seen_class) + 1e-6)))
     log_string('End of training...')
 
-
 if __name__ == '__main__':
-
-    '''Set Hyper Parameter'''
-    args = parse_args()
+    parser = argparse.ArgumentParser()
+    # 添加 gpu 参数
+    parser.add_argument('--gpu', type=str, default='0', help='Specify which GPU to use')
+    # 添加 log_dir 参数
+    parser.add_argument('--log_dir', type=str, default='default_log_dir', help='Directory for logs')
+    # 添加 seed 参数
+    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    # 添加 seg_path 参数
+    parser.add_argument('--seg_path', type=str, default='D:/Datas/stanford_indoor3d/', help='Path to the segmentation dataset')
+    # 添加 test_area 参数
+    parser.add_argument('--test_area', type=int, default=5, help='Test area')
+    # 添加 seg_point 参数
+    parser.add_argument('--seg_point', type=int, default=4096, help='Number of points per segment')
+    # 添加 seg_batch_size 参数
+    parser.add_argument('--seg_batch_size', type=int, default=12, help='Segmentation batch size')
+    # 添加 seg_visual 参数
+    parser.add_argument('--seg_visual', type=bool, default=False, help='Whether to visualize segmentation results')
+    # 添加 seg_votes 参数
+    parser.add_argument('--seg_votes', type=int, default=3, help='Number of votes for segmentation')
+    # 添加 seg_num_category 参数
+    parser.add_argument('--seg_num_category', type=int, default=13, help='Number of segmentation categories')
+    args = parser.parse_args()
 
     '''Set seed'''
-    seed = args.seed  # np.random.randint(1, 10000)
+    seed = args.seed
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -200,7 +209,7 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(seed)
 
     '''Set Algorithm Consistency'''
-    torch.backends.cudnn.enabled = True #使用非确定性算法
-    torch.backends.cudnn.deterministic = True #保证算法得到一样的结果
-    # torch.backends.cudnn.benchmark = True    #是否自动加速，增加显存
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = True
     main(args)

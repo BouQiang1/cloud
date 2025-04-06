@@ -106,13 +106,6 @@ class Dense(nn.Module):
     def __init__(self, in_size, out_size, in_dim=3,
             has_bn=True, drop_out=None):
         super(Dense, self).__init__()
-        """
-        Args:
-            input ( B x M x K x 3  tensor ) -- subtraction vectors 
-                from query to its k nearest neighbor
-        Output: 
-            local point feature ( B x M x K x 64 tensor ) 
-        """
         self.has_bn = has_bn
         self.in_dim = in_dim
 
@@ -136,13 +129,11 @@ class Dense(nn.Module):
             )
 
     def forward(self, inputs):
-
         if self.has_bn == True:
             d =  self.in_dim - 1
             outputs = self.batchnorm(inputs.transpose(1, d)).transpose(1, d)
             outputs = self.linear(outputs)
             return outputs
-
         else:
             outputs = self.linear(inputs)
             return outputs
@@ -232,16 +223,16 @@ class ShellUp(nn.Module):
 class get_model(nn.Module):
     def __init__(self, args, has_bn=True):
         super(get_model, self).__init__()
-        self.num_class = args.cls_num_category # 分类数量
-        self.num_points = args.cls_point   # 采样点
-        self.conv_scale = 1  #每层卷积输出通道缩放比
-        self.dense_scale = 1 #FC层输出通道缩放比
+        self.num_class = args.cls_num_category  # 分类数量
+        self.num_points = args.cls_point  # 采样点
+        self.conv_scale = 1  # 每层卷积输出通道缩放比
+        self.dense_scale = 1  # FC层输出通道缩放比
 
         filters = [64, 128, 256, 512]
-        filters = [int(x / self.conv_scale) for x in filters] # [32, 64, 128, 256]
+        filters = [int(x / self.conv_scale) for x in filters]  # [32, 64, 128, 256]
 
         features = [256, 128]
-        features = [int(x / self.dense_scale) for x in features] #[128, 64]
+        features = [int(x / self.dense_scale) for x in features]  # [128, 64]
 
         self.shellconv1 = ShellConv(filters[1], 0, 32, 4, has_bn)
         self.shellconv2 = ShellConv(filters[2], filters[1], 16, 2, has_bn)
@@ -250,18 +241,18 @@ class get_model(nn.Module):
         self.shellup2 = ShellUp(filters[1], filters[2], 16, 2, has_bn)
         self.shellup1 = ShellConv(filters[0], filters[1], 32, 4, has_bn)
 
-        self.fc1 = Dense(filters[0], features[0], has_bn=has_bn, drop_out=0)
+        self.fc1 = Dense(64, features[0], has_bn=has_bn, drop_out=0)  # 修改输入维度为 64
         self.fc2 = Dense(features[0], features[1], has_bn=has_bn, drop_out=0.5)
         self.fc3 = Dense(features[1], self.num_class, has_bn=has_bn)
 
-        self.fc1 = nn.Linear(512, 256)
+        self.fc1 = nn.Linear(64, 256)  # 修改输入维度为 64
         self.bn1 = nn.BatchNorm1d(256)
         self.drop1 = nn.Dropout(0.2)
         self.fc2 = nn.Linear(256, 128)
         self.bn2 = nn.BatchNorm1d(128)
         self.drop2 = nn.Dropout(0.5)
         self.fc3 = nn.Linear(128, self.num_class)
-        
+
     def forward(self, inputs):
         '''
         :param inputs: B,N,C
@@ -286,7 +277,7 @@ class get_model(nn.Module):
         # print("up2.shape = ", up2.shape)
 
         up1 = self.shellup1(query1, inputs, up2)
-        # print("up1.shape = ", up1.shape)
+        print("up1.shape = ", up1.shape)  # 打印 up1 的形状
 
         fc1 = self.fc1(up1)
         # print("fc1.shape = ", fc1.shape)
